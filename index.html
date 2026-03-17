@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Postcard Studio</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root {
+  --bg: #f5f5f7;
+  --card-bg: rgba(255,255,255,0.8);
+  --text: #1d1d1f;
+  --text-secondary: #86868b;
+  --accent: #007AFF;
+  --accent-hover: #0056CC;
+  --border: rgba(0,0,0,0.08);
+  --glass: rgba(255,255,255,0.72);
+  --glass-border: rgba(255,255,255,0.5);
+  --shadow: 0 4px 24px rgba(0,0,0,0.08);
+  --shadow-lg: 0 12px 48px rgba(0,0,0,0.12);
+  --danger: #FF3B30;
+  --success: #34C759;
+  --warning: #FF9500;
+  --scrollbar-bg: #f0f0f0;
+  --scrollbar-thumb: #c0c0c0;
+  --input-bg: rgba(142,142,147,0.12);
+  --overlay: rgba(0,0,0,0.4);
+}
+
+.dark {
+  --bg: #000000;
+  --card-bg: rgba(28,28,30,0.8);
+  --text: #f5f5f7;
+  --text-secondary: #98989d;
+  --accent: #0A84FF;
+  --accent-hover: #409CFF;
+  --border: rgba(255,255,255,0.1);
+  --glass: rgba(28,28,30,0.72);
+  --glass-border: rgba(255,255,255,0.1);
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-lg: 0 12px 48px rgba(0,0,0,0.5);
+  --scrollbar-bg: #1c1c1e;
+  --scrollbar-thumb: #48484a;
+  --input-bg: rgba(142,142,147,0.18);
+  --overlay: rgba(0,0,0,0.6);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow: hidden;
+  transition: background 0.3s, color 0.3s;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-bg); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-corner { background: var(--scrollbar-bg); }
+
+* {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-bg);
+  scrollbar-width: thin;
+}
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+}
+
+.card {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 28px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: scale(1.02); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.btn-secondary:hover { background: var(--border); }
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.btn-danger:hover { opacity: 0.85; }
+
+input, textarea, select {
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-family: inherit;
+  transition: all 0.3s;
+  width: 100%;
+  outline: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+}
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 8px 0 env(safe-area-inset-bottom, 8px);
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  border: none;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab-item.active { color: var(--accent); }
+.tab-item .tab-icon { font-size: 24px; transition: transform 0.3s; }
+.tab-item.active .tab-icon { transform: scale(1.1); }
+
+.page { 
+  position: absolute; 
+  inset: 0; 
+  bottom: 80px; 
+  overflow-y: auto; 
+  padding: 20px; 
+  opacity: 0; 
+  transform: translateY(20px); 
+  pointer-events: none; 
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.page.active { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+.toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 14px 24px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  animation: toastIn 0.4s ease, toastOut 0.4s ease 2.6s forwards;
+  pointer-events: auto;
+  max-width: 340px;
+  text-align: center;
+}
+.toast.success { background: var(--success); color: white; }
+.toast.error { background: var(--danger); color: white; }
+.toast.info { background: var(--accent); color: white; }
+
+@keyframes toastIn { from { opacity: 0; transform: translateY(-20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-20px); } }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: var(--overlay); z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+.modal-content {
+  max-width: 480px; width: 100%; max-height: 85vh; overflow-y: auto;
+  border-radius: 24px; padding: 32px;
+  background: var(--card-bg); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+  border: 1px solid var(--glass-border); box-shadow: var(--shadow-lg);
+  transform: scale(0.9); transition: transform 0.3s;
+}
+.modal-overlay.active .modal-content { transform: scale(1); }
+
+.spinner {
+  width: 24px; height: 24px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.carousel-container { 
+  overflow-x: auto; 
+  scroll-snap-type: x mandatory; 
+  display: flex; 
+  gap: 16px; 
+  padding: 10px 0 20px;
+  -webkit-overflow-scrolling: touch;
+}
+.carousel-container::-webkit-scrollbar { height: 0; }
+.carousel-item { 
+  scroll-snap-align: center; 
+  flex-shrink: 0; 
+  width: calc(100vw - 80px);
+  max-width: 380px;
+}
+
+.dot-indicators { display: flex; gap: 8px; justify-content: center; padding: 12px 0; }
+.dot { 
+  width: 8px; height: 8px; border-radius: 50%; 
+  background: var(--text-secondary); opacity: 0.3; 
+  transition: all 0.3s; cursor: pointer; border: none;
+}
+.dot.active { opacity: 1; background: var(--accent); width: 24px; border-radius: 4px; }
+
+.size-option {
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+  background: var(--input-bg);
+}
+.size-option.selected { border-color: var(--accent); background: rgba(0,122,255,0.08); }
+.size-option:hover { border-color: var(--accent); }
+
+.safety-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  transition: all 0.3s;
+}
+.safety-safe { background: rgba(52,199,89,0.12); color: var(--success); }
+.safety-unsafe { background: rgba(255,59,48,0.12); color: var(--danger); }
+
+.postcard-preview {
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--input-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.postcard-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.auth-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  cursor: pointer;
+}
+.toggle-switch input { display: none; }
+.toggle-slider {
+  position: absolute; inset: 0;
+  background: var(--input-bg);
+  border-radius: 31px;
+  transition: 0.3s;
+}
+.toggle-slider:before {
+  content: '';
+  position: absolute;
+  width: 27px; height: 27px;
+  left: 2px; bottom: 2px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.3s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+.toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+.section-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.section-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.pulse { animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+#selfEditIndicator {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  z-index: 9999;
+  background: var(--accent);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow-lg);
+}
+
+.version-item {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--input-bg);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 1px solid transparent;
+}
+.version-item:hover { border-color: var(--accent); }
+.version-item.current { border-color: var(--accent); background: rgba(0,122,255,0.08); }
+</style>
+</head>
+<body>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<div id="authPage" class="auth-page">
+  <div class="card" style="max-width:400px;width:100%;padding:40px;text-align:center;">
+    <div style="font-size:64px;margin-bottom:16px;">✉️</div>
+    <h1 class="section-title" style="margin-bottom:8px;">Postcard Studio</h1>
+    <p class="section-subtitle">Create beautiful AI-powered postcards</p>
+    
+    <div id="authStep1">
+      <input type="email" id="authEmail" placeholder="Enter your email" style="margin-bottom:16px;">
+      <button class="btn-primary" style="width:100%;" onclick="requestAuthCode()">
+        <span id="authBtn1Text">Continue</span>
+        <div id="authBtn1Spin" class="spinner" style="display:none;width:18px;height:18px;border-width:2px;"></div>
+      </button>
+    </div>
+    
+    <div id="authStep2" style="display:none;">
+      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:16px;">We sent a code to <span id="authEmailDisplay"></span></p>
+      <input type="text" id="authCode" placeholder="Enter verification code" maxlength="10" style="margin-bottom:16px;text-align:center;font-size:24px;letter-spacing:8px;">
+      <button class="btn-primary" style="width:100%;" onclick="verifyAuthCode()">
+        <span id="authBtn2Text">Verify</span>
+        <div id="authBtn2Spin" class="spinner" style="display:none;width:18px;height:18px;border-width:2px;"></div>
+      </button>
+      <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="showAuthStep1()">Back</button>
+    </div>
+  </div>
+</div>
+
+<div id="appContainer" style="display:none;">
+  <!-- Create Page -->
+  <div id="pageCreate" class="page active">
+    <div style="max-width:560px;margin:0 auto;padding-top:20px;">
+      <h1 class="section-title fade-in">Create Postcard</h1>
+      <p class="section-subtitle fade-in">Describe your perfect postcard</p>
+      
+      <!-- Size Selection -->
+      <div style="margin-bottom:24px;" class="fade-in">
+        <label style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);display:block;margin-bottom:12px;">Select Size</label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div class="size-option selected" data-size="4x6" onclick="selectSize(this)">
+            <div style="font-size:20px;font-weight:700;">4×6</div>
+            <div style="font-size:11px;color:var(--text-secondary);">Standard</div>
+          </div>
+          <div class="size-option" data-size="5x7" onclick="selectSize(this)">
+            <div style="font-size:20px;font-weight:700;">5×7</div>
+            <div style="font-size:11px;color:var(--text-secondary);">Large</div>
+          </div>
+          <div class="size-option" data-size="6x11" onclick="selectSize(this)">
+            <div style="font-size:20px;font-weight:700;">6×11</div>
+            <div style="font-size:11px;color:var(--text-secondary);">Panoramic</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Preview -->
+      <div id="postcardPreviewArea" class="postcard-preview fade-in" style="margin-bottom:24px;aspect-ratio:6/4;">
+        <div id="previewPlaceholder" style="text-align:center;padding:40px;">
+          <div style="font-size:48px;margin-bottom:12px;">🎨</div>
+          <div style="color:var(--text-secondary);font-size:14px;">Your postcard will appear here</div>
+        </div>
+        <img id="previewImage" style="display:none;" alt="Postcard preview">
+      </div>
+      
+      <!-- Prompt Input -->
+      <div style="margin-bottom:16px;" class="fade-in">
+        <textarea id="promptInput" placeholder="Describe your postcard... e.g., 'A serene sunset over lavender fields in Provence with a vintage French cottage'" rows="3" style="resize:none;"></textarea>
+      </div>
+      
+      <!-- Safety Check -->
+      <div id="safetyResult" style="margin-bottom:16px;display:none;" class="fade-in"></div>
+      
+      <!-- Action Buttons -->
+      <div style="display:flex;gap:12px;" class="fade-in">
+        <button class="btn-secondary" style="flex:1;" onclick="checkSafety()" id="checkBtn">
+          <span id="checkBtnText">🛡️ Safety Check</span>
+          <div id="checkBtnSpin" class="spinner" style="display:none;width:16px;height:16px;border-width:2px;"></div>
+        </button>
+        <button class="btn-primary" style="flex:1;" onclick="generatePostcard()" id="generateBtn" disabled>
+          <span id="genBtnText">✨ Generate</span>
+          <div id="genBtnSpin" class="spinner" style="display:none;width:16px;height:16px;border-width:2px;border-top-color:white;"></div>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- My Cards Page -->
+  <div id="pageCards" class="page">
+    <div style="max-width:560px;margin:0 auto;padding-top:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <h1 class="section-title">My Cards</h1>
+        <span id="cardCount" style="font-size:14px;color:var(--text-secondary);font-weight:500;"></span>
+      </div>
+      <p class="section-subtitle">Your postcard collection</p>
+      
+      <div id="cardsEmpty" style="text-align:center;padding:60px 20px;display:none;">
+        <div style="font-size:80px;margin-bottom:16px;">📮</div>
+        <h3 style="font-size:20px;font-weight:600;margin-bottom:8px;">No postcards yet</h3>
+        <p style="color:var(--text-secondary);font-size:15px;">Create your first postcard to get started!</p>
+        <button class="btn-primary" style="margin-top:24px;" onclick="switchTab('create')">Create Postcard</button>
+      </div>
+      
+      <div id="cardsCarousel" class="carousel-container"></div>
+      <div id="cardsDots" class="dot-indicators"></div>
+      
+      <div id="cardsList" style="margin-top:16px;"></div>
+    </div>
+  </div>
+  
+  <!-- Profile Page -->
+  <div id="pageProfile" class="page">
+    <div style="max-width:560px;margin:0 auto;padding-top:20px;">
+      <h1 class="section-title">Profile</h1>
+      <p class="section-subtitle">Manage your settings</p>
+      
+      <!-- Avatar & Name -->
+      <div class="card" style="padding:24px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+          <div id="profileAvatar" style="width:64px;height:64px;border-radius:50%;background:var(--input-bg);display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer;" onclick="changeAvatar()">😊</div>
+          <div>
+            <div id="profileEmail" style="font-size:14px;color:var(--text-secondary);"></div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Tap emoji to change</div>
+          </div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:8px;">Display Name</label>
+          <input type="text" id="profileName" placeholder="Your name" onchange="saveProfile()">
+        </div>
+      </div>
+      
+      <!-- Theme -->
+      <div class="card" style="padding:24px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:16px;font-weight:600;">Dark Mode</div>
+            <div style="font-size:13px;color:var(--text-secondary);">Reduce eye strain at night</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      
+      <!-- Security -->
+      <div class="card" style="padding:24px;margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">🔒 Security Passkey</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">Protect destructive actions</div>
+        <input type="password" id="profilePasskey" placeholder="Set a passkey (optional)" onchange="saveProfile()">
+      </div>
+      
+      <!-- Download All -->
+      <div class="card" style="padding:24px;margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">📦 Export Data</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">Download all postcards as ZIP</div>
+        <button class="btn-secondary" style="width:100%;" onclick="downloadAllData()" id="downloadBtn">
+          <span id="dlBtnText">Download All Data</span>
+          <div id="dlBtnSpin" class="spinner" style="display:none;width:16px;height:16px;border-width:2px;"></div>
+        </button>
+      </div>
+      
+      <!-- Storage -->
+      <div class="card" style="padding:24px;margin-bottom:16px;">
+        <div style="font-size:16px;font-weight:600;margin-bottom:4px;">📊 Storage</div>
+        <div id="storageInfo" style="font-size:13px;color:var(--text-secondary);">Calculating...</div>
+      </div>
+      
+      <!-- Sign Out -->
+      <button class="btn-danger" style="width:100%;margin-bottom:40px;" onclick="signOut()">Sign Out</button>
+    </div>
+  </div>
+  
+  <!-- Tab Bar -->
+  <div class="tab-bar glass" style="border-top:1px solid var(--border);">
+    <div style="display:flex;justify-content:space-around;max-width:400px;margin:0 auto;">
+      <button class="tab-item active" onclick="switchTab('create')" data-tab="create">
+        <span class="tab-icon">✏️</span>
+        <span>Create</span>
+      </button>
+      <button class="tab-item" onclick="switchTab('cards')" data-tab="cards">
+        <span class="tab-icon">🃏</span>
+        <span>My Cards</span>
+      </button>
+      <button class="tab-item" onclick="switchTab('profile')" data-tab="profile">
+        <span class="tab-icon">👤</span>
+        <span>Profile</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Card Detail Modal -->
+<div id="cardDetailModal" class="modal-overlay" onclick="if(event.target===this)closeModal('cardDetailModal')">
+  <div class="modal-content" style="max-width:520px;">
+    <div id="cardDetailContent"></div>
+  </div>
+</div>
+
+<!-- Passkey Modal -->
+<div id="passkeyModal" class="modal-overlay" onclick="if(event.target===this)closeModal('passkeyModal')">
+  <div class="modal-content" style="max-width:360px;text-align:center;">
+    <div style="font-size:48px;margin-bottom:12px;">🔐</div>
+    <h3 style="font-size:20px;font-weight:600;margin-bottom:8px;">Enter Passkey</h3>
+    <p style="font-size:14px;color:var(--text-secondary);margin-bottom:20px;">This action requires your security passkey</p>
+    <input type="password" id="passkeyInput" placeholder="Enter passkey" style="margin-bottom:16px;text-align:center;">
+    <button class="btn-primary" style="width:100%;" onclick="submitPasskey()">Confirm</button>
+    <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal('passkeyModal')">Cancel</button>
+  </div>
+</div>
+
+<!-- Avatar Picker Modal -->
+<div id="avatarModal" class="modal-overlay" onclick="if(event.target===this)closeModal('avatarModal')">
+  <div class="modal-content" style="max-width:360px;text-align:center;">
+    <h3 style="font-size:20px;font-weight:600;margin-bottom:16px;">Choose Avatar</h3>
+    <div id="avatarGrid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;"></div>
+  </div>
+</div>
+
+<!-- Self Edit Indicator -->
+<div id="selfEditIndicator">
+  <div class="spinner" style="width:14px;height:14px;border-width:2px;border-top-color:white;"></div>
+  Editing...
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // Global AI tracking
+  window._aiTotalInputTokens = 0;
+  window._aiTotalOutputTokens = 0;
+  window._aiTotalTime = 0;
+  window._aiTimeByAlias = {};
+
+  const AUTH_BASE = 'https://flask-versioned-store.fly.dev';
+  const AI_BASE = 'https://16504442930.work';
+  const TOKEN_KEY = 'postcard_studio_token';
+  const TOKEN_EXPIRY_KEY = 'postcard_studio_token_expiry';
+  const EMAIL_KEY = 'postcard_studio_email';
+
+  let currentUser = null;
+  let authToken = null;
+  let userProfile = { displayName: '', avatar: '😊', darkMode: false, passkey: '' };
+  let postcards = [];
+  let selectedSize = '4x6';
+  let safetyPassed = false;
+  let passkeyCallback = null;
+  let currentCarouselIndex = 0;
+
+  const SIZE_RATIOS = {
+    '4x6': { w: 6, h: 4, label: '4×6 Standard' },
+    '5x7': { w: 7, h: 5, label: '5×7 Large' },
+    '6x11': { w: 11, h: 6, label: '6×11 Panoramic' }
+  };
+
+  const AVATARS = ['😊','😎','🤩','🥰','🤗','😇','🧑‍🎨','🧑‍💻','👩‍🎤','🦊','🐱','🐶','🌸','🌺','🎨','✨','🌈','🦋','🐼','🦄','🌻','🍀','⭐','💎','🎭','🎪','🏔️','🌊','🎸','🎺'];
+
+  // ---- Toast ----
+  function showToast(msg, type = 'info') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  // ---- Modal ----
+  function openModal(id) { document.getElementById(id).classList.add('active'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+  window.closeModal = closeModal;
+
+  // ---- AI Call ----
+  async function callAI(alias, params, retries = 3) {
+    const start = Date.now();
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = await fetch(`${AI_BASE}/run_prompt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ alias, params })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          if (i === retries - 1) {
+            const friendly = await reformatError(errText);
+            throw new Error(friendly);
+          }
+          continue;
+        }
+        const data = await res.json();
+        const elapsed = Date.now() - start;
+        window._aiTotalTime += elapsed;
+        window._aiTimeByAlias[alias] = (window._aiTimeByAlias[alias] || 0) + elapsed;
+        if (data.usage) {
+          window._aiTotalInputTokens += data.usage.input_tokens || 0;
+          window._aiTotalOutputTokens += data.usage.output_tokens || 0;
+        }
+        return data;
+      } catch (e) {
+        if (i === retries - 1) throw e;
+      }
+    }
+  }
+
+  async function reformatError(errMsg) {
+    try {
+      const res = await callAI('genericAI', {
+        prompt: `Reformat this error message to be user-friendly and help the user fix it. Return a JSON object with key "message" as a string. Error: ${errMsg}`
+      }, 1);
+      return (res.message || res.text || errMsg) + ` [Raw: ${errMsg}]`;
+    } catch {
+      return errMsg;
+    }
+  }
+
+  // ---- Auth ----
+  function getStoredAuth() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const expiry = localStorage.getItem(TOKEN_EXPIRY_KEY);
+    const email = localStorage.getItem(EMAIL_KEY);
+    if (token && expiry && email && Date.now() < parseInt(expiry)) {
+      return { token, email };
+    }
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXPIRY_KEY);
+    localStorage.removeItem(EMAIL_KEY);
+    return null;
+  }
+
+  function storeAuth(token, email) {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_EXPIRY_KEY, String(Date.now() + 23 * 60 * 60 * 1000));
+    localStorage.setItem(EMAIL_KEY, email);
+  }
+
+  window.requestAuthCode = async function() {
+    const email = document.getElementById('authEmail').value.trim();
+    if (!email) { showToast('Please enter your email', 'error'); return; }
+    document.getElementById('authBtn1Text').style.display = 'none';
+    document.getElementById('authBtn1Spin').style.display = 'inline-block';
+    try {
+      const res = await fetch(`${AUTH_BASE}/request-token-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (!res.ok) throw new Error('Failed to send code');
+      document.getElementById('authEmailDisplay').textContent = email;
+      document.getElementById('authStep1').style.display = 'none';
+      document.getElementById('authStep2').style.display = 'block';
+      showToast('Verification code sent!', 'success');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+    document.getElementById('authBtn1Text').style.display = 'inline';
+    document.getElementById('authBtn1Spin').style.display = 'none';
+  };
+
+  window.showAuthStep1 = function() {
+    document.getElementById('authStep1').style.display = 'block';
+    document.getElementById('authStep2').style.display = 'none';
+  };
+
+  window.verifyAuthCode = async function() {
+    const email = document.getElementById('authEmail').value.trim();
+    const code = document.getElementById('authCode').value.trim();
+    if (!code) { showToast('Please enter the code', 'error'); return; }
+    document.getElementById('authBtn2Text').style.display = 'none';
+    document.getElementById('authBtn2Spin').style.display = 'inline-block';
+    try {
+      const res = await fetch(`${AUTH_BASE}/verify-email-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.token) throw new Error(data.error || 'Verification failed');
+      storeAuth(data.token, email);
+      authToken = data.token;
+      currentUser = email;
+      showToast('Welcome to Postcard Studio!', 'success');
+      initApp();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+    document.getElementById('authBtn2Text').style.display = 'inline';
+    document.getElementById('authBtn2Spin').style.display = 'none';
+  };
+
+  window.signOut = function() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_EXPIRY_KEY);
+    localStorage.removeItem(EMAIL_KEY);
+    location.reload();
+  };
+
+  // ---- Versioned Store ----
+  async function storeWrite(key, value, contentType = 'application/json') {
+    const res = await fetch(`${AUTH_BASE}/write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify({ key, value, content_type: contentType })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Write failed');
+    }
+    return res.json();
+  }
+
+  async function storeRead(key, version) {
+    const body = version ? { key, version } : { key };
+    const res = await fetch(`${AUTH_BASE}/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Read failed');
+    }
+    const data = await res.json();
+    if (data.content_type === 'application/json') {
+      try {
+        return typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      } catch {
+        return data.value;
+      }
+    }
+    return data.value;
+  }
+
+  function userKey(suffix) {
+    return `postcard_studio_${currentUser}_${suffix}`;
+  }
+
+  // ---- Profile ----
+  async function loadProfile() {
+    try {
+      const data = await storeRead(userKey('profile'));
+      if (data) {
+        userProfile = { ...userProfile, ...data };
+      }
+    } catch {}
+    applyProfile();
+  }
+
+  function applyProfile() {
+    document.getElementById('profileName').value = userProfile.displayName || '';
+    document.getElementById('profilePasskey').value = userProfile.passkey || '';
+    document.getElementById('profileAvatar').textContent = userProfile.avatar || '😊';
+    document.getElementById('profileEmail').textContent = currentUser;
+    document.getElementById('darkModeToggle').checked = userProfile.darkMode;
+    if (userProfile.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }
+
+  window.saveProfile = async function() {
+    userProfile.displayName = document.getElementById('profileName').value.trim();
+    userProfile.passkey = document.getElementById('profilePasskey').value;
+    try {
+      await storeWrite(userKey('profile'), JSON.stringify(userProfile));
+      showToast('Profile saved', 'success');
+    } catch (e) {
+      showToast('Failed to save profile', 'error');
+    }
+  };
+
+  window.toggleDarkMode = function() {
+    userProfile.darkMode = document.getElementById('darkModeToggle').checked;
+    if (userProfile.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    saveProfile();
+  };
+
+  window.changeAvatar = function() {
+    const grid = document.getElementById('avatarGrid');
+    grid.innerHTML = '';
+    AVATARS.forEach(emoji => {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'font-size:28px;padding:8px;border:none;background:none;cursor:pointer;border-radius:12px;transition:all 0.2s;';
+      btn.textContent = emoji;
+      btn.onmouseover = () => btn.style.background = 'var(--input-bg)';
+      btn.onmouseout = () => btn.style.background = 'none';
+      btn.onclick = () => {
+        userProfile.avatar = emoji;
+        document.getElementById('profileAvatar').textContent = emoji;
+        closeModal('avatarModal');
+        saveProfile();
+      };
+      grid.appendChild(btn);
+    });
+    openModal('avatarModal');
+  };
+
+  // ---- Passkey Check ----
+  function requirePasskey() {
+    return new Promise((resolve) => {
+      if (!userProfile.passkey) { resolve(true); return; }
+      passkeyCallback = resolve;
+      document.getElementById('passkeyInput').value = '';
+      openModal('passkeyModal');
+    });
+  }
+
+  window.submitPasskey = function() {
+    const input = document.getElementById('passkeyInput').value;
+    closeModal('passkeyModal');
+    if (passkeyCallback) {
+      passkeyCallback(input === userProfile.passkey);
+      passkeyCallback = null;
+    }
+  };
+
+  // ---- Postcards Data ----
+  async function loadPostcards() {
+    try {
+      const data = await storeRead(userKey('postcards'));
+      if (data && Array.isArray(data)) {
+        postcards = data;
+      } else {
+        postcards = [];
+      }
+    } catch {
+      postcards = [];
+    }
+    renderCards();
+  }
+
+  async function savePostcards() {
+    try {
+      await storeWrite(userKey('postcards'), JSON.stringify(postcards));
+    } catch (e) {
+      showToast('Failed to save postcards', 'error');
+    }
+  }
+
+  // ---- Size Selection ----
+  window.selectSize = function(el) {
+    document.querySelectorAll('.size-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedSize = el.dataset.size;
+    const ratio = SIZE_RATIOS[selectedSize];
+    document.getElementById('postcardPreviewArea').style.aspectRatio = `${ratio.w}/${ratio.h}`;
+    safetyPassed = false;
+    document.getElementById('generateBtn').disabled = true;
+    document.getElementById('safetyResult').style.display = 'none';
+  };
+
+  // ---- Safety Check ----
+  window.checkSafety = async function() {
+    const prompt = document.getElementById('promptInput').value.trim();
+    if (!prompt) { showToast('Please enter a prompt first', 'error'); return; }
+    
+    document.getElementById('checkBtnText').style.display = 'none';
+    document.getElementById('checkBtnSpin').style.display = 'inline-block';
+    document.getElementById('checkBtn').disabled = true;
+    
+    try {
+      const result = await callAI('genericAI', {
+        prompt: `You are a content safety analyzer. Analyze the following postcard image description for family-friendliness. The image will be generated by AI and should be safe for all ages. Check for: violence, explicit content, hate speech, dangerous activities, or any inappropriate themes.
+
+Description to analyze: "${prompt}"
+
+Return a JSON object with exactly these keys:
+- "safe": a boolean (true if the description is family-friendly, false if not)
+- "reason": a string explaining why (max 100 characters)
+
+Return ONLY valid JSON, nothing else.`
+      });
+      
+      const safe = result.safe === true;
+      safetyPassed = safe;
+      document.getElementById('generateBtn').disabled = !safe;
+      
+      const sr = document.getElementById('safetyResult');
+      sr.style.display = 'block';
+      if (safe) {
+        sr.innerHTML = `<div class="safety-badge safety-safe">✅ ${result.reason || 'Content is family-friendly'}</div>`;
+      } else {
+        sr.innerHTML = `<div class="safety-badge safety-unsafe">⚠️ ${result.reason || 'Content may not be family-friendly'}</div>`;
+      }
+    } catch (e) {
+      showToast('Safety check failed: ' + e.message, 'error');
+    }
+    
+    document.getElementById('checkBtnText').style.display = 'inline';
+    document.getElementById('checkBtnSpin').style.display = 'none';
+    document.getElementById('checkBtn').disabled = false;
+  };
+
+  // ---- Generate Postcard ----
+  window.generatePostcard = async function(editingId) {
+    const prompt = document.getElementById('promptInput').value.trim();
+    if (!prompt) { showToast('Please enter a prompt', 'error'); return; }
+    if (!safetyPassed && !editingId) { showToast('Please pass safety check first', 'error'); return; }
+    
+    document.getElementById('genBtnText').style.display = 'none';
+    document.getElementById('genBtnSpin').style.display = 'inline-flex';
+    document.getElementById('generateBtn').disabled = true;
+    
+    const ratio = SIZE_RATIOS[selectedSize];
+    const imagePrompt = `Create a beautiful postcard image. Size: ${ratio.label} (landscape orientation, aspect ratio ${ratio.w}:${ratio.h}). The postcard should be: ${prompt}. Make it vibrant, professional quality, suitable for printing as a real postcard. No text overlay.`;
+    
+    try {
+      const result = await callAI('imageGen', { prompt: imagePrompt });
+      
+      if (!result.data) throw new Error('No image generated');
+      
+      const base64 = result.data;
+      
+      // Show preview
+      const img = document.getElementById('previewImage');
+      img.src = `data:image/png;base64,${base64}`;
+      img.style.display = 'block';
+      document.getElementById('previewPlaceholder').style.display = 'none';
+      
+      // Save postcard
+      const now = new Date().toISOString();
+      if (editingId) {
+        const idx = postcards.findIndex(p => p.id === editingId);
+        if (idx >= 0) {
+          const old = postcards[idx];
+          if (!old.history) old.history = [];
+          old.history.push({
+            image: old.image,
+            prompt: old.prompt,
+            size: old.size,
+            updatedAt: old.updatedAt || old.createdAt
+          });
+          old.image = base64;
+          old.prompt = prompt;
+          old.size = selectedSize;
+          old.updatedAt = now;
+        }
+      } else {
+        postcards.unshift({
+          id: 'pc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          image: base64,
+          prompt,
+          size: selectedSize,
+          createdAt: now,
+          updatedAt: now,
+          history: []
+        });
+      }
+      
+      await savePostcards();
+      renderCards();
+      showToast('Postcard created! 🎉', 'success');
+      
+    } catch (e) {
+      showToast('Generation failed: ' + e.message, 'error');
+    }
+    
+    document.getElementById('genBtnText').style.display = 'inline';
+    document.getElementById('genBtnSpin').style.display = 'none';
+    document.getElementById('generateBtn').disabled = false;
+  };
+
+  // ---- Render Cards ----
+  function renderCards() {
+    const empty = document.getElementById('cardsEmpty');
+    const carousel = document.getElementById('cardsCarousel');
+    const dots = document.getElementById('cardsDots');
+    const count = document.getElementById('cardCount');
+    const list = document.getElementById('cardsList');
+    
+    count.textContent = `${postcards.length} card${postcards.length !== 1 ? 's' : ''}`;
+    
+    if (postcards.length === 0) {
+      empty.style.display = 'block';
+      carousel.style.display = 'none';
+      dots.style.display = 'none';
+      list.innerHTML = '';
+      return;
+    }
+    
+    empty.style.display = 'none';
+    carousel.style.display = 'flex';
+    dots.style.display = 'flex';
+    
+    carousel.innerHTML = '';
+    postcards.forEach((pc, i) => {
+      const ratio = SIZE_RATIOS[pc.size] || SIZE_RATIOS['4x6'];
+      const item = document.createElement('div');
+      item.className = 'carousel-item';
+      item.innerHTML = `
+        <div class="card" style="overflow:hidden;cursor:pointer;" onclick="showCardDetail('${pc.id}')">
+          <div style="aspect-ratio:${ratio.w}/${ratio.h};overflow:hidden;border-radius:20px 20px 0 0;">
+            <img src="data:image/png;base64,${pc.image}" style="width:100%;height:100%;object-fit:cover;" alt="Postcard">
+          </div>
+          <div style="padding:16px;">
+            <p style="font-size:14px;font-weight:500;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(pc.prompt)}</p>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+              <span style="font-size:12px;color:var(--text-secondary);">${ratio.label}</span>
+              <span style="font-size:12px;color:var(--text-secondary);">${formatDate(pc.createdAt)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+      carousel.appendChild(item);
+    });
+    
+    // Dots
+    dots.innerHTML = '';
+    postcards.forEach((_, i) => {
+      const dot = document.createElement('button');
+      dot.className = `dot ${i === 0 ? 'active' : ''}`;
+      dot.onclick = () => {
+        const items = carousel.querySelectorAll('.carousel-item');
+        if (items[i]) items[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      };
+      dots.appendChild(dot);
+    });
+    
+    // Scroll observer for dots
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const idx = Array.from(carousel.children).indexOf(entry.target);
+          dots.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+          currentCarouselIndex = idx;
+        }
+      });
+    }, { root: carousel, threshold: 0.6 });
+    
+    carousel.querySelectorAll('.carousel-item').forEach(item => observer.observe(item));
+    
+    // Update storage estimate
+    updateStorageInfo();
+  }
+
+  function updateStorageInfo() {
+    const totalBytes = postcards.reduce((sum, pc) => {
+      let size = pc.image ? pc.image.length * 0.75 : 0;
+      if (pc.history) {
+        pc.history.forEach(h => { size += h.image ? h.image.length * 0.75 : 0; });
+      }
+      return sum + size;
+    }, 0);
+    const mb = (totalBytes / (1024 * 1024)).toFixed(2);
+    document.getElementById('storageInfo').textContent = `${postcards.length} postcards · ~${mb} MB estimated`;
+  }
+
+  // ---- Card Detail ----
+  window.showCardDetail = function(id) {
+    const pc = postcards.find(p => p.id === id);
+    if (!pc) return;
+    
+    const ratio = SIZE_RATIOS[pc.size] || SIZE_RATIOS['4x6'];
+    const content = document.getElementById('cardDetailContent');
+    
+    let historyHtml = '';
+    if (pc.history && pc.history.length > 0) {
+      historyHtml = `
+        <div style="margin-top:20px;">
+          <div style="font-size:16px;font-weight:600;margin-bottom:12px;">Version History (${pc.history.length})</div>
+          ${pc.history.map((h, i) => `
+            <div class="version-item" onclick="viewVersion('${id}', ${i})">
+              <div style="font-size:13px;font-weight:500;">v${i + 1} · ${SIZE_RATIOS[h.size]?.label || h.size}</div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.prompt)}</div>
+              <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">${formatDate(h.updatedAt)}</div>
+            </div>
+          `).reverse().join('')}
+        </div>
+      `;
+    }
+    
+    content.innerHTML = `
+      <div style="aspect-ratio:${ratio.w}/${ratio.h};border-radius:16px;overflow:hidden;margin-bottom:20px;">
+        <img src="data:image/png;base64,${pc.image}" style="width:100%;height:100%;object-fit:cover;" alt="Postcard">
+      </div>
+      <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;">Prompt</h3>
+      <p style="font-size:14px;color:var(--text-secondary);line-height:1.5;margin-bottom:16px;">${escapeHtml(pc.prompt)}</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <span style="font-size:13px;background:var(--input-bg);padding:6px 12px;border-radius:8px;">${ratio.label}</span>
+        <span style="font-size:13px;background:var(--input-bg);padding:6px 12px;border-radius:8px;">Created ${formatDate(pc.createdAt)}</span>
+      </div>
+      <div style="display:flex;gap:12px;">
+        <button class="btn-primary" style="flex:1;font-size:14px;" onclick="rewritePostcard('${id}')">✏️ Rewrite</button>
+        <button class="btn-danger" style="flex:1;font-size:14px;" onclick="deletePostcard('${id}')">🗑️ Delete</button>
+      </div>
+      <div style="margin-top:12px;">
+        <button class="btn-secondary" style="width:100%;font-size:14px;" onclick="downloadSinglePostcard('${id}')">⬇️ Download Image</button>
+      </div>
+      ${historyHtml}
+    `;
+    
+    openModal('cardDetailModal');
+  };
+
+  window.viewVersion = function(id, versionIdx) {
+    const pc = postcards.find(p => p.id === id);
+    if (!pc || !pc.history || !pc.history[versionIdx]) return;
+    
+    const h = pc.history[versionIdx];
+    const ratio = SIZE_RATIOS[h.size] || SIZE_RATIOS['4x6'];
+    const content = document.getElementById('cardDetailContent');
+    
+    content.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <button class="btn-secondary" style="font-size:13px;padding:8px 16px;" onclick="showCardDetail('${id}')">← Back to Current</button>
+      </div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;">Version ${versionIdx + 1} of ${pc.history.length}</div>
+      <div style="aspect-ratio:${ratio.w}/${ratio.h};border-radius:16px;overflow:hidden;margin-bottom:20px;">
+        <img src="data:image/png;base64,${h.image}" style="width:100%;height:100%;object-fit:cover;" alt="Version">
+      </div>
+      <h3 style="font-size:18px;font-weight:600;margin-bottom:8px;">Prompt</h3>
+      <p style="font-size:14px;color:var(--text-secondary);line-height:1.5;">${escapeHtml(h.prompt)}</p>
+      <div style="margin-top:12px;">
+        <span style="font-size:13px;background:var(--input-bg);padding:6px 12px;border-radius:8px;">${ratio.label}</span>
+      </div>
+    `;
+  };
+
+  window.rewritePostcard = function(id) {
+    const pc = postcards.find(p => p.id === id);
+    if (!pc) return;
+    closeModal('cardDetailModal');
+    switchTab('create');
+    document.getElementById('promptInput').value = pc.prompt;
+    // Select the size
+    document.querySelectorAll('.size-option').forEach(o => {
+      o.classList.toggle('selected', o.dataset.size === pc.size);
+    });
+    selectedSize = pc.size;
+    const ratio = SIZE_RATIOS[selectedSize];
+    document.getElementById('postcardPreviewArea').style.aspectRatio = `${ratio.w}/${ratio.h}`;
+    
+    // Show the current image
+    const img = document.getElementById('previewImage');
+    img.src = `data:image/png;base64,${pc.image}`;
+    img.style.display = 'block';
+    document.getElementById('previewPlaceholder').style.display = 'none';
+    
+    // Override generate to edit
+    safetyPassed = false;
+    document.getElementById('generateBtn').disabled = true;
+    document.getElementById('safetyResult').style.display = 'none';
+    
+    // Store editing id
+    document.getElementById('generateBtn').setAttribute('data-editing', id);
+    
+    showToast('Edit the prompt and regenerate', 'info');
+  };
+
+  // Override generate to handle editing
+  const originalGenerate = window.generatePostcard;
+  window.generatePostcard = function() {
+    const editingId = document.getElementById('generateBtn').getAttribute('data-editing');
+    const prompt = document.getElementById('promptInput').value.trim();
+    if (!prompt) { showToast('Please enter a prompt', 'error'); return; }
+    if (!safetyPassed) { showToast('Please pass safety check first', 'error'); return; }
+    
+    document.getElementById('generateBtn').removeAttribute('data-editing');
+    
+    document.getElementById('genBtnText').style.display = 'none';
+    document.getElementById('genBtnSpin').style.display = 'inline-flex';
+    document.getElementById('generateBtn').disabled = true;
+    
+    const ratio = SIZE_RATIOS[selectedSize];
+    const imagePrompt = `Create a beautiful postcard image. Size: ${ratio.label} (landscape orientation, aspect ratio ${ratio.w}:${ratio.h}). The postcard should be: ${prompt}. Make it vibrant, professional quality, suitable for printing as a real postcard. No text overlay.`;
+    
+    callAI('imageGen', { prompt: imagePrompt }).then(async (result) => {
+      if (!result.data) throw new Error('No image generated');
+      
+      const base64 = result.data;
+      const img = document.getElementById('previewImage');
+      img.src = `data:image/png;base64,${base64}`;
+      img.style.display = 'block';
+      document.getElementById('previewPlaceholder').style.display = 'none';
+      
+      const now = new Date().toISOString();
+      if (editingId) {
+        const idx = postcards.findIndex(p => p.id === editingId);
+        if (idx >= 0) {
+          const old = postcards[idx];
+          if (!old.history) old.history = [];
+          old.history.push({
+            image: old.image,
+            prompt: old.prompt,
+            size: old.size,
+            updatedAt: old.updatedAt || old.createdAt
+          });
+          old.image = base64;
+          old.prompt = prompt;
+          old.size = selectedSize;
+          old.updatedAt = now;
+        }
+      } else {
+        postcards.unshift({
+          id: 'pc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          image: base64,
+          prompt,
+          size: selectedSize,
+          createdAt: now,
+          updatedAt: now,
+          history: []
+        });
+      }
+      
+      await savePostcards();
+      renderCards();
+      showToast('Postcard created! 🎉', 'success');
+    }).catch(e => {
+      showToast('Generation failed: ' + e.message, 'error');
+    }).finally(() => {
+      document.getElementById('genBtnText').style.display = 'inline';
+      document.getElementById('genBtnSpin').style.display = 'none';
+      document.getElementById('generateBtn').disabled = false;
+    });
+  };
+
+  window.deletePostcard = async function(id) {
+    const ok = await requirePasskey();
+    if (!ok) { showToast('Incorrect passkey', 'error'); return; }
+    
+    postcards = postcards.filter(p => p.id !== id);
+    await savePostcards();
+    renderCards();
+    closeModal('cardDetailModal');
+    showToast('Postcard deleted', 'success');
+  };
+
+  window.downloadSinglePostcard = function(id) {
+    const pc = postcards.find(p => p.id === id);
+    if (!pc) return;
+    const link = document.createElement('a');
+    link.download = `postcard_${pc.id}.png`;
+    link.href = `data:image/png;base64,${pc.image}`;
+    link.click();
+    showToast('Download started', 'success');
+  };
+
+  // ---- Download All ----
+  window.downloadAllData = async function() {
+    const ok = await requirePasskey();
+    if (!ok) { showToast('Incorrect passkey', 'error'); return; }
+    
+    if (postcards.length === 0) { showToast('No postcards to download', 'info'); return; }
+    
+    document.getElementById('dlBtnText').style.display = 'none';
+    document.getElementById('dlBtnSpin').style.display = 'inline-block';
+    
+    try {
+      const zip = new JSZip();
+      const manifest = [];
+      
+      postcards.forEach((pc, i) => {
+        const filename = `postcard_${i + 1}_${pc.size}.png`;
+        zip.file(filename, pc.image, { base64: true });
+        
+        const entry = {
+          id: pc.id,
+          filename,
+          prompt: pc.prompt,
+          size: pc.size,
+          createdAt: pc.createdAt,
+          updatedAt: pc.updatedAt,
+          versions: (pc.history || []).length
+        };
+        manifest.push(entry);
+        
+        if (pc.history) {
+          pc.history.forEach((h, vi) => {
+            const vFilename = `postcard_${i + 1}_v${vi + 1}_${h.size}.png`;
+            zip.file(vFilename, h.image, { base64: true });
+          });
+        }
+      });
+      
+      zip.file('manifest.json', JSON.stringify({ postcards: manifest, exportedAt: new Date().toISOString(), user: currentUser }, null, 2));
+      
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.download = `postcard_studio_export_${Date.now()}.zip`;
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      URL.revokeObjectURL(link.href);
+      
+      showToast('Download complete!', 'success');
+    } catch (e) {
+      showToast('Download failed: ' + e.message, 'error');
+    }
+    
+    document.getElementById('dlBtnText').style.display = 'inline';
+    document.getElementById('dlBtnSpin').style.display = 'none';
+  };
+
+  // ---- Tab Navigation ----
+  window.switchTab = function(tab) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    
+    const pageMap = { create: 'pageCreate', cards: 'pageCards', profile: 'pageProfile' };
+    document.getElementById(pageMap[tab]).classList.add('active');
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  };
+
+  // ---- Helpers ----
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // ---- Self Edit ----
+  async function selfEdit({ sourceUrl, userInput }) {
+    const url = new URL(sourceUrl);
+    const key = url.searchParams.get('key');
+    if (!key) throw new Error('Missing key in URL');
+    
+    const sourceRes = await fetch(`${AI_BASE}/serve?key=${key}`);
+    const currentSource = await sourceRes.text();
+    
+    const aiResp = await callAI('code', {
+      prompt: `SOURCE:\n${currentSource}\n\nUSER REQUEST:\n${userInput}\n\nReturn ONLY the full modified source.`,
+      systemPrompt: 'Return ONLY the full modified source code.'
+    });
+    
+    const modifiedSource = aiResp.text || aiResp.content || aiResp.result || aiResp.response || aiResp;
+    const newKey = 'js_editor_' + key + '-' + Date.now();
+    
+    await fetch(`${AI_BASE}/write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: newKey, value: modifiedSource, content_type: 'text/html' })
+    });
+    
+    const newUrl = `${AI_BASE}/serve?key=${newKey}`;
+    return { success: true, newKey, newUrl };
+  }
+
+  document.addEventListener('keydown', async (e) => {
+    if (e.ctrlKey && e.key === 'e') {
+      e.preventDefault();
+      const userInput = prompt('Describe the modification:');
+      if (!userInput) return;
+      
+      const indicator = document.getElementById('selfEditIndicator');
+      indicator.style.display = 'flex';
+      
+      try {
+        const result = await selfEdit({ sourceUrl: window.location.href, userInput });
+        indicator.style.display = 'none';
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay active';
+        modal.innerHTML = `
+          <div class="modal-content" style="text-align:center;">
+            <div style="font-size:48px;margin-bottom:12px;">✅</div>
+            <h3 style="font-size:20px;font-weight:600;margin-bottom:12px;">Edit Complete</h3>
+            <a href="${result.newUrl}" target="_blank" style="color:var(--accent);word-break:break-all;">${result.newUrl}</a>
+            <button class="btn-primary" style="width:100%;margin-top:20px;" onclick="this.closest('.modal-overlay').remove()">Close</button>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      } catch (err) {
+        indicator.style.display = 'none';
+        showToast('Self-edit failed: ' + err.message, 'error');
+      }
+    }
+  });
+
+  // ---- Init ----
+  async function initApp() {
+    document.getElementById('authPage').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'block';
+    await loadProfile();
+    await loadPostcards();
+  }
+
+  // Check for stored auth
+  const stored = getStoredAuth();
+  if (stored) {
+    authToken = stored.token;
+    currentUser = stored.email;
+    initApp();
+  }
+
+  window.initApp = initApp;
+})();
+</script>
+</body>
+</html>
